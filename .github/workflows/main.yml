@@ -21,14 +21,14 @@ jobs:
         run: npm install
 
       - name: Register slash command
-        run: npm run deploy
+        run: node deploy-commands.js
         env:
           DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
           CLIENT_ID: ${{ secrets.CLIENT_ID }}
           GUILD_ID: ${{ secrets.GUILD_ID }}
 
       - name: Start logger bot
-        run: npm start
+        run: node index.js
         env:
           DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
           GUILD_ID: ${{ secrets.GUILD_ID }}
