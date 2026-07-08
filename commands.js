@@ -1,8 +1,8 @@
-const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require("discord.js");
+const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, AuditLogEvent } = require("discord.js");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const logsPath = path.join(__dirname, "logs.json");
+const logsPath = path.join(__dirname, "action-logs.json");
 
 // Load or create logs file
 function loadLogs() {
@@ -12,7 +12,7 @@ function loadLogs() {
   try {
     return JSON.parse(fs.readFileSync(logsPath, "utf8"));
   } catch (error) {
-    console.error("Could not read logs.json:", error);
+    console.error("Could not read action-logs.json:", error);
     return {};
   }
 }
@@ -24,14 +24,74 @@ function saveLogs(logs) {
 
 // Generate unique log ID
 function generateLogId() {
-  return `LOG-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+  return `ACT-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+}
+
+// Log an action to the log channel
+async function logAction(client, guildId, logId, title, description, fields = [], color = 0x4ECDC4) {
+  const configPath = path.join(__dirname, "guild-config.json");
+  
+  let config = {};
+  if (fs.existsSync(configPath)) {
+    try {
+      config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+    } catch (error) {
+      return null;
+    }
+  }
+
+  const logChannelId = config[guildId]?.logChannelId;
+  if (!logChannelId) {
+    return null;
+  }
+
+  try {
+    const guild = await client.guilds.fetch(guildId);
+    const logChannel = await guild.channels.fetch(logChannelId);
+
+    if (!logChannel || !logChannel.isTextBased()) {
+      return null;
+    }
+
+    const embed = new EmbedBuilder()
+      .setColor(color)
+      .setTitle(`${title}`)
+      .setDescription(description)
+      .addFields({ name: "Log ID", value: `\`${logId}\``, inline: false })
+      .addFields(fields)
+      .setTimestamp();
+
+    const message = await logChannel.send({ embeds: [embed] });
+    return message.id;
+  } catch (error) {
+    console.error("Could not send log to channel:", error);
+    return null;
+  }
+}
+
+// Save action log to file
+function saveActionLog(guildId, logId, messageId, type, title, description, userId, timestamp) {
+  const logs = loadLogs();
+  if (!logs[guildId]) {
+    logs[guildId] = [];
+  }
+  logs[guildId].push({
+    logId,
+    messageId,
+    type,
+    title,
+    description,
+    userId,
+    timestamp,
+  });
+  saveLogs(logs);
 }
 
 const commands = [
   {
     data: new SlashCommandBuilder()
-      .setName("viewlogs")
-      .setDescription("View all saved log entries")
+      .setName("viewactions")
+      .setDescription("View all logged server actions")
       .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
     async execute(interaction) {
       const logs = loadLogs();
@@ -40,144 +100,43 @@ const commands = [
       if (!logs[guildId] || logs[guildId].length === 0) {
         const embed = new EmbedBuilder()
           .setColor(0xFF6B6B)
-          .setTitle("📋 No Logs Found")
-          .setDescription("There are no saved logs for this server yet.")
+          .setTitle("📋 No Actions Logged")
+          .setDescription("There are no logged actions for this server yet.")
           .setTimestamp();
         
         return interaction.reply({ embeds: [embed], ephemeral: true });
       }
 
-      const guildLogs = logs[guildId];
+      const actions = logs[guildId];
       const embed = new EmbedBuilder()
         .setColor(0x4ECDC4)
-        .setTitle("📋 Server Logs")
-        .setDescription(`Total logs: **${guildLogs.length}**`)
+        .setTitle("📋 Server Actions Log")
+        .setDescription(`Total actions logged: **${actions.length}**`)
         .setTimestamp();
 
-      guildLogs.slice(0, 25).forEach((log) => {
+      actions.slice(-10).reverse().forEach((action) => {
         embed.addFields({
-          name: `${log.logId}`,
-          value: `**User:** ${log.userName}\n**Action:** ${log.action}\n**Time:** <t:${Math.floor(log.timestamp / 1000)}:R>`,
+          name: `[${action.type.toUpperCase()}] ${action.title}`,
+          value: `${action.description}\n**Log ID:** \`${action.logId}\`\n**Time:** <t:${Math.floor(action.timestamp / 1000)}:R>`,
           inline: false,
         });
       });
 
-      if (guildLogs.length > 25) {
-        embed.setFooter({ text: `Showing 25 of ${guildLogs.length} logs` });
+      if (actions.length > 10) {
+        embed.setFooter({ text: `Showing latest 10 of ${actions.length} actions` });
       }
-
-      return interaction.reply({ embeds: [embed], ephemeral: true });
-    },
-  },
-
-  {
-    data: new SlashCommandBuilder()
-      .setName("deletelogs")
-      .setDescription("Delete all saved logs for this server")
-      .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
-    async execute(interaction) {
-      const logs = loadLogs();
-      const guildId = interaction.guild.id;
-      
-      if (!logs[guildId] || logs[guildId].length === 0) {
-        const embed = new EmbedBuilder()
-          .setColor(0xFF6B6B)
-          .setTitle("❌ No Logs to Delete")
-          .setDescription("There are no logs to delete for this server.")
-          .setTimestamp();
-        
-        return interaction.reply({ embeds: [embed], ephemeral: true });
-      }
-
-      delete logs[guildId];
-      saveLogs(logs);
-
-      const embed = new EmbedBuilder()
-        .setColor(0x95E1D3)
-        .setTitle("✅ Logs Deleted")
-        .setDescription("All saved logs for this server have been deleted.")
-        .setTimestamp();
-
-      return interaction.reply({ embeds: [embed], ephemeral: true });
-    },
-  },
-
-  {
-    data: new SlashCommandBuilder()
-      .setName("loginfo")
-      .setDescription("View detailed information about a specific log entry")
-      .addStringOption((option) =>
-        option
-          .setName("log_id")
-          .setDescription("The Log ID to view")
-          .setRequired(true)
-      )
-      .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
-    async execute(interaction) {
-      const logs = loadLogs();
-      const guildId = interaction.guild.id;
-      const logId = interaction.options.getString("log_id");
-
-      if (!logs[guildId]) {
-        const embed = new EmbedBuilder()
-          .setColor(0xFF6B6B)
-          .setTitle("❌ Log Not Found")
-          .setDescription("This server has no logs.")
-          .setTimestamp();
-        
-        return interaction.reply({ embeds: [embed], ephemeral: true });
-      }
-
-      const log = logs[guildId].find((l) => l.logId === logId);
-
-      if (!log) {
-        const embed = new EmbedBuilder()
-          .setColor(0xFF6B6B)
-          .setTitle("❌ Log Not Found")
-          .setDescription(`Log ID **${logId}** could not be found.`)
-          .setTimestamp();
-        
-        return interaction.reply({ embeds: [embed], ephemeral: true });
-      }
-
-      const embed = new EmbedBuilder()
-        .setColor(0x4ECDC4)
-        .setTitle("📋 Log Details")
-        .addFields(
-          { name: "Log ID", value: log.logId, inline: true },
-          { name: "User", value: log.userName, inline: true },
-          { name: "User ID", value: log.userId, inline: true },
-          { name: "Action", value: log.action, inline: false },
-          { name: "Details", value: log.details || "No additional details", inline: false },
-          { name: "Timestamp", value: `<t:${Math.floor(log.timestamp / 1000)}:F>`, inline: false }
-        )
-        .setTimestamp();
 
       return interaction.reply({ embeds: [embed], ephemeral: true });
     },
   },
 ];
 
-// Function to add a log entry
-function addLogEntry(guildId, userName, userId, action, details = "") {
-  const logs = loadLogs();
-  const logId = generateLogId();
-
-  if (!logs[guildId]) {
-    logs[guildId] = [];
-  }
-
-  logs[guildId].push({
-    logId,
-    userName,
-    userId,
-    action,
-    details,
-    timestamp: Date.now(),
-  });
-
-  saveLogs(logs);
-  return logId;
-}
-
-module.exports = { commands, addLogEntry, loadLogs, saveLogs };
+// Export for use in index.js
+module.exports = { 
+  commands, 
+  logAction, 
+  saveActionLog, 
+  generateLogId, 
+  loadLogs, 
+  saveLogs 
+};
