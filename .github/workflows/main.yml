@@ -1,4 +1,4 @@
-name: Discord Logger
+name: runner
 
 on:
   workflow_dispatch:
