@@ -22,7 +22,12 @@ function setLogChannelId(channelId) { guildConfig[allowedGuildId] = { logChannel
 
 const client = new Client({ intents: [ GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, ], partials: [Partials.Channel, Partials.Message], });
 
-function cleanText(text, maxLength = 1000) { if (!text) return "None"; return text.length > maxLength ? ${text.slice(0, maxLength - 3)}... : text; }
+function cleanText(text, maxLength = 1000) {
+  if (!text) return "None";
+  return text.length > maxLength
+    ? `${text.slice(0, maxLength - 3)}...`
+    : text;
+}
 
 function isAllowedGuild(guild) { return guild && guild.id === allowedGuildId; }
 
