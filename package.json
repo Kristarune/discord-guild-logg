@@ -1,13 +1,4 @@
-{
-  "name": "discord-command-logger",
-  "version": "1.0.0",
-  "description": "Discord bot command and embed logger",
-  "main": "index.js",
-  "scripts": {
-    "start": "node index.js"
-  },
-  "dependencies": {
-    "discord.js": "^14.21.0",
-    "dotenv": "^16.6.1"
-  }
-}
+{ "name": "discord-command-logger", "version": "1.0.0", "main": "index.js", "scripts": { "start": "node index.js", "deploy": "node deploy-commands.js" }, "dependencies": { "discord.js": "^14.21.0", "dotenv": "^16.6.1" } }
+
+
+
