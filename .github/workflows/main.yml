@@ -2,15 +2,11 @@ name: runner
 
 on:
   workflow_dispatch:
-  workflow_run:
-    workflows: ["runner"]
-    types: [completed]
 
 jobs:
   run-bot:
     runs-on: ubuntu-latest
     timeout-minutes: 350
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion != 'failure' }}
 
     steps:
       - name: Checkout repository
@@ -35,6 +31,7 @@ jobs:
         run: node index.js
         env:
           DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
+          GUILD_ID: ${{ secrets.GUILD_ID }}          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
           GUILD_ID: ${{ secrets.GUILD_ID }}
 
   auto-rerun:
