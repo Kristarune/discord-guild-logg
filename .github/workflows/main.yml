@@ -31,8 +31,8 @@ jobs:
         run: node index.js
         env:
           DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
-          GUILD_ID: ${{ secrets.GUILD_ID }}          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
-          GUILD_ID: ${{ secrets.GUILD_ID }}
+          GUILD_ID: ${{ secrets.GUILD_ID }}         
+        
 
   auto-rerun:
     runs-on: ubuntu-latest
