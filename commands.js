@@ -129,6 +129,60 @@ const commands = [
       return interaction.reply({ embeds: [embed], ephemeral: true });
     },
   },
+  {
+    data: new SlashCommandBuilder()
+      .setName("fxtwitter")
+      .setDescription("Convert an X (Twitter) embed to fxtwitter embed")
+      .addStringOption(option =>
+        option
+          .setName("url")
+          .setDescription("The X (Twitter) URL to convert")
+          .setRequired(true)
+      ),
+    async execute(interaction) {
+      const url = interaction.options.getString("url");
+      
+      // Validate if it's an X/Twitter URL
+      if (!url.includes("x.com") && !url.includes("twitter.com")) {
+        return interaction.reply({
+          content: "❌ Please provide a valid X/Twitter URL",
+          ephemeral: true
+        });
+      }
+      
+      try {
+        // Convert x.com to fxtwitter.com
+        let convertedUrl = url
+          .replace(/https?:\/\/(www\.)?x\.com/g, "https://fxtwitter.com")
+          .replace(/https?:\/\/(www\.)?twitter\.com/g, "https://fxtwitter.com");
+        
+        // Remove tracking parameters
+        convertedUrl = convertedUrl.split("?")[0];
+        
+        const embed = new EmbedBuilder()
+          .setColor(0x1DA1F2)
+          .setTitle("✅ fxtwitter Embed Ready")
+          .setDescription(`[Click here to view](${convertedUrl})`)
+          .addFields({
+            name: "Converted URL",
+            value: `\`${convertedUrl}\``,
+            inline: false
+          })
+          .setTimestamp();
+        
+        await interaction.reply({
+          embeds: [embed],
+          ephemeral: false
+        });
+      } catch (error) {
+        console.error(error);
+        await interaction.reply({
+          content: "❌ An error occurred while converting the URL",
+          ephemeral: true
+        });
+      }
+    }
+  },
 ];
 
 // Export for use in index.js
